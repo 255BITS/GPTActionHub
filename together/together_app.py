@@ -21,16 +21,20 @@ def update_prompt_formats():
     global stop_tokens
 
     for model in model_list:
+        # newer together API responses use 'id' instead of 'name'
+        name = model.get('name') or model.get('id')
+        if name is None:
+            continue
         if 'config' in model and 'prompt_format' in model['config']:
-            prompt_formats[model['name']]= model['config']['prompt_format']
+            prompt_formats[name]= model['config']['prompt_format']
         elif 'config' in model and 'chat_template_name' in model['config']:
             pprint(model)
             if model['config']['chat_template_name'] in chat_templates:
-                prompt_formats[model['name']] = chat_templates[model['config']['chat_template_name']]
+                prompt_formats[name] = chat_templates[model['config']['chat_template_name']]
         if 'config' in model and 'stop' in model['config']:
-            stop_tokens[model['name']]=model['config']['stop']
+            stop_tokens[name]=model['config']['stop']
         else:
-            stop_tokens[model['name']]=["\n"]
+            stop_tokens[name]=["\n"]
 
 update_prompt_formats()
 
