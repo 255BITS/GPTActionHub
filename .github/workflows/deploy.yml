@@ -9,9 +9,16 @@ concurrency:
   cancel-in-progress: false
 jobs:
   deploy:
-    runs-on: [self-hosted, 255bits]
+    runs-on: ubuntu-24.04
     timeout-minutes: 15
     steps:
+      - name: Patch hosted runner trust
+        run: |
+          set -euo pipefail
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends ca-certificates openssl
+          sudo update-ca-certificates
+          dpkg --compare-versions "$(dpkg-query -W -f='${Version}' ca-certificates)" ge 20260816ubuntu0.24.04.1
       - name: Deploy to 255labs box
         env:
           DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
