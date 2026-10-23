@@ -27,7 +27,7 @@ RUN mkdir -p /root/.aws
 
 # Install dependencies
 COPY portal/requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+RUN pip install --no-cache-dir wheel==0.46.3 setuptools==84.2.1 && pip install --no-cache-dir -r requirements.txt
 
 # If Uvicorn isn't in your requirements.txt, install it explicitly
 RUN pip install gunicorn
