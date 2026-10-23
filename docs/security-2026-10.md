@@ -46,3 +46,12 @@ Python 3.11.17 isolated environments resolved the complete service graphs; `pip 
 Rollback: revert this commit and redeploy the previous tested image/venv snapshot if compatibility fails. That restores known vulnerable pins; do not treat rollback as a security fix. Source merge, image build, installed venvs and running workers must be verified separately.
 
 cryptography 50.0.2 also preserves the deployed security floor and uses OpenSSL 4.0.3 in published wheels; see the [official release notes](https://cryptography.io/en/latest/changelog/#v50-0-2).
+## Separate source authentication fixes
+
+The proxy previously accepted any Basic token whenever an action had an auth record: `validate_auth` unconditionally returned true. It now strictly decodes Basic credentials, compares the case-sensitive username, checks the stored bcrypt password hash, and rejects malformed/oversized credentials, missing hashes and unknown auth schemes before creating an upstream request. Invalid authentication returns HTTP 401. bcrypt 4.0.1 is explicitly installed in portal/proxy because it is compatible with the existing passlib 1.7.4 password hashes; the installed package has no advisory in the audit database at verification time. Existing hashes and generated API keys remain valid.
+
+The proxy no longer writes raw request headers/body or action/API configurations to process logs. Authorization, Cookie, Proxy-Authorization and configured credential header names are redacted before request logs are stored in CouchDB. Application request/response logging remains functional; payloads can still contain user data by design, so access to the log database must remain restricted.
+
+The portal refuses to start without a nonempty private FLASK_SECRET or when it is the known `development` default. Deployment owners must verify a persistent secret is already configured before activation. Generating/changing it signs out existing sessions. Offline tests cover correct/wrong passwords, mixed-case Basic scheme with case-sensitive token, missing/malformed credentials, unknown auth records, zero upstream calls on failures, credential redaction and portal secret enforcement.
+
+These are source defects found directly in the application, with no assigned upstream advisory ID. Rollback is a commit revert plus previous artifact restore; that reintroduces the authentication bypass. Independently restrict direct access to backend services so client requests pass through the proxy authentication boundary.
