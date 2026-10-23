@@ -306,6 +306,8 @@ async def passthrough(action_id, operation_id):
     else:
         return jsonify({"error": 'Missing or invalid Authorization header'}), 401
 
+    # This credential authenticates the proxy, not the upstream API.
+    headers.pop('Authorization', None)
     api_url = target_path['url']
     for param in active_action_path["params"]:
         target_param = None

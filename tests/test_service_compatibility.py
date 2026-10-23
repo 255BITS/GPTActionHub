@@ -136,7 +136,8 @@ async def check_async_service(monkeypatch):
         transport.request.assert_awaited_once()
         assert transport.request.call_args.kwargs['headers']['X-Api-Key'] == 'private-upstream-secret'
         logged = module.async_log.call_args.args[0]['headers']
-        assert logged['Authorization'] == '[REDACTED]'
+        assert 'Authorization' not in logged
+        assert 'Authorization' not in transport.request.call_args.kwargs['headers']
         assert logged['X-Api-Key'] == '[REDACTED]'
         assert not module.validate_auth(base64.b64encode(b'CaseSensitive:PaSsWord').decode(), {'auth_type': 'unknown'})
 
