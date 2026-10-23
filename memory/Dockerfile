@@ -1,5 +1,5 @@
 # Use a more standard Python image
-FROM python:3.11-slim
+FROM python:3.11.17-slim
 
 # Patch trust before pip, Git, or SDK downloads (eMudhra incident, 2026-10-20).
 RUN apt-get update \
