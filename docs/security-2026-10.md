@@ -41,7 +41,7 @@ HTTP parsing, templates, uploaded/form data, OAuth responses, outbound HTTP redi
 
 ## Tests and rollback
 
-Python 3.11.17 isolated environments resolved the complete service graphs; `pip check` passed. OSV batch audits of both complete installed graphs, including transitive and build/test packages, returned no advisories. Seven offline service probes exercise actual Flask/Quart routes; the portal probe also runs all four existing OpenAPI fixtures. DB, provider API, S3 and model catalog boundaries are mocked, and unmocked socket connections fail. Tests caught a missing `os` import in Together completion, fixed in this change. CI independently installs and checks each service.
+Python 3.11.17 isolated environments resolved the complete service graphs; `pip check` passed. OSV batch audits of both complete installed graphs, including transitive and build/test packages, returned no advisories. Seven offline service probes exercise actual Flask/Quart routes; the portal probe also runs all four existing OpenAPI fixtures. DB, provider API, S3 and model catalog boundaries are mocked, and unmocked socket connections fail. Tests caught a missing `os` import in Together completion, fixed in this change. CI independently installs and checks each service, then also jointly resolves all six shared-environment requirement files and runs each app in that same installed environment. Together is separately resolved and tested, matching its separate deployment venv.
 
 Rollback: revert this commit and redeploy the previous tested image/venv snapshot if compatibility fails. That restores known vulnerable pins; do not treat rollback as a security fix. Source merge, image build, installed venvs and running workers must be verified separately.
 
