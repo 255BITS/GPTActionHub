@@ -215,7 +215,7 @@ def validate_auth(header_token, auth):
     try:
         if not isinstance(header_token, str) or len(header_token) > 2048:
             return False
-        if auth.get("auth_type") != "api_key_basic":
+        if not isinstance(auth, dict) or auth.get("auth_type") != "api_key_basic":
             return False
         decoded = base64.b64decode(header_token, validate=True).decode("utf-8")
         username, password = decoded.split(":", 1)
@@ -239,7 +239,7 @@ def ready():
 def redact_log_value(value, credentials):
     """Remove known configured secrets from every request/response log field."""
     if isinstance(value, dict):
-        return {key: redact_log_value(item, credentials) for key, item in value.items()}
+        return {redact_log_value(key, credentials): redact_log_value(item, credentials) for key, item in value.items()}
     if isinstance(value, (list, tuple)):
         return [redact_log_value(item, credentials) for item in value]
     if isinstance(value, str):
@@ -320,7 +320,8 @@ async def passthrough(action_id, operation_id):
         return jsonify({"error": 'Missing or invalid Authorization header'}), 401
 
     # This credential authenticates the proxy, not the upstream API.
-    credentials = [auth_header, auth_header[6:]]
+    decoded_proxy_credential = base64.b64decode(auth_header[6:], validate=True).decode("utf-8")
+    credentials = [auth_header, auth_header[6:], decoded_proxy_credential, decoded_proxy_credential.split(":", 1)[1]]
     for header_name in list(headers):
         if header_name.lower() == "authorization":
             del headers[header_name]
@@ -371,7 +372,7 @@ async def passthrough(action_id, operation_id):
 
     response_time = time.time() - start_time
 
-    sensitive_headers = {"authorization", "cookie", "proxy-authorization"}
+    sensitive_headers = {"authorization", "cookie", "set-cookie", "proxy-authorization"}
     sensitive_headers.update(p["name"].lower() for p in target_path["params"] if p.get("type") == "credential")
     logged_headers = {key: "[REDACTED]" if key.lower() in sensitive_headers else value for key, value in headers.items()}
     record_request = {
@@ -381,7 +382,7 @@ async def passthrough(action_id, operation_id):
     }
     record_response = {
         "content": response_data,
-        "headers": dict(response.headers)
+        "headers": {key: "[REDACTED]" if key.lower() in sensitive_headers else value for key, value in response.headers.items()}
     }
     record_request = redact_log_value(record_request, credentials)
     record_response = redact_log_value(record_response, credentials)

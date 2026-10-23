@@ -116,7 +116,7 @@ async def check_async_service(monkeypatch):
         target_path = {'path_id': 'path', 'url': 'https://example.invalid/upstream', 'method': 'POST', 'params': [{'name': 'X-Api-Key', 'type': 'credential'}]}
         module.action_lookup_table['action'] = {'auths': [auth], 'api_links': [{'api_id': 'api', 'paths': [{'operation_id': 'operation', 'path_id': 'path', 'params': [{'name': 'X-Api-Key', 'value': 'private-upstream-secret'}]}]}]}
         module.url_api_lookup_table['api'] = {'paths': [target_path]}
-        upstream = SimpleNamespace(text='upstream result private-upstream-secret', status_code=200, headers={'X-Echo': 'private-upstream-secret'})
+        upstream = SimpleNamespace(text='upstream result private-upstream-secret', status_code=200, headers={'X-Echo': 'private-upstream-secret', 'Set-Cookie': 'session=private-cookie'})
         transport = Mock(request=AsyncMock(return_value=upstream))
         context = MagicMock()
         context.__aenter__ = AsyncMock(return_value=transport)
@@ -129,7 +129,7 @@ async def check_async_service(monkeypatch):
             assert 'Missing or invalid Authorization' in await response.get_data(as_text=True)
             transport.request.assert_not_awaited()
         token = base64.b64encode(b'CaseSensitive:PaSsWord').decode()
-        response = await client.post('/action/operation?echo=private-upstream-secret', headers={'authorization': 'bAsIc ' + token}, json={'echo': 'private-upstream-secret'})
+        response = await client.post('/action/operation?echo=private-upstream-secret', headers={'authorization': 'bAsIc ' + token}, json={'echo': 'private-upstream-secret', 'password': 'PaSsWord'})
         assert response.status_code == 200
         assert 'upstream result' in await response.get_data(as_text=True)
         await asyncio.gather(*module.logging_tasks)
@@ -143,6 +143,8 @@ async def check_async_service(monkeypatch):
         serialized_log = json.dumps(module.async_log.call_args.args[:2])
         assert 'private-upstream-secret' not in serialized_log
         assert token not in serialized_log
+        assert 'PaSsWord' not in serialized_log
+        assert 'private-cookie' not in serialized_log
         # Client-visible behavior is preserved while stored data is redacted.
         assert 'private-upstream-secret' in await response.get_data(as_text=True)
         assert not module.validate_auth(base64.b64encode(b'CaseSensitive:PaSsWord').decode(), {'auth_type': 'unknown'})
@@ -173,5 +175,5 @@ def test_proxy_redaction_encoded_forms(monkeypatch):
     redacted = module.redact_log_value(payload, [secret])
     assert secret not in json.dumps(redacted)
     assert quote_plus(secret) not in redacted['query']
-    assert secret not in redacted['body']
+    assert json.loads(redacted['body']) == {'password': '[REDACTED]'}
     assert redacted['response'] == ['[REDACTED]']
