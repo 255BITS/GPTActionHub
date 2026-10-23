@@ -13,6 +13,7 @@ import base64
 import binascii
 import secrets
 from passlib.hash import bcrypt
+from urllib.parse import quote, quote_plus
 from datetime import datetime
 import requests
 import sys
@@ -235,6 +236,20 @@ def ready():
     return "ready"
 
 
+def redact_log_value(value, credentials):
+    """Remove known configured secrets from every request/response log field."""
+    if isinstance(value, dict):
+        return {key: redact_log_value(item, credentials) for key, item in value.items()}
+    if isinstance(value, (list, tuple)):
+        return [redact_log_value(item, credentials) for item in value]
+    if isinstance(value, str):
+        for credential in sorted(set(credentials), key=len, reverse=True):
+            for representation in {credential, json.dumps(credential)[1:-1], quote(credential, safe=""), quote_plus(credential)}:
+                if representation:
+                    value = value.replace(representation, "[REDACTED]")
+    return value
+
+
 def get_value_from_source(param, headers):
     source = param["source"]
     if source == "constant":
@@ -287,9 +302,7 @@ async def passthrough(action_id, operation_id):
             target_path = path
             break
 
-    auth_header = None
-    if "Authorization" in headers:
-        auth_header = headers["Authorization"]
+    auth_header = next((value for key, value in headers.items() if key.lower() == "authorization"), None)
     # Basic auth
     if auth_header and auth_header[:6].lower() == 'basic ':
         token = auth_header[6:]  # Strip off 'Basic ' prefix
@@ -307,7 +320,10 @@ async def passthrough(action_id, operation_id):
         return jsonify({"error": 'Missing or invalid Authorization header'}), 401
 
     # This credential authenticates the proxy, not the upstream API.
-    headers.pop('Authorization', None)
+    credentials = [auth_header, auth_header[6:]]
+    for header_name in list(headers):
+        if header_name.lower() == "authorization":
+            del headers[header_name]
     api_url = target_path['url']
     for param in active_action_path["params"]:
         target_param = None
@@ -315,6 +331,7 @@ async def passthrough(action_id, operation_id):
             if tp["name"] == param["name"]:
                 target_param = tp
         if target_param is not None and target_param["type"] == "credential":
+            credentials.append(str(param["value"]))
             if target_param['name'] == 'bearer':
                 headers['Authorization'] = 'Bearer ' + param['value']
             elif target_param['name'] == 'basic':
@@ -366,6 +383,8 @@ async def passthrough(action_id, operation_id):
         "content": response_data,
         "headers": dict(response.headers)
     }
+    record_request = redact_log_value(record_request, credentials)
+    record_response = redact_log_value(record_response, credentials)
     do_log = async_log(record_request, record_response, response_time, method, action_id, api_link['api_id'], operation_id, active_path_id, response.status_code)
     log_task = asyncio.create_task(do_log)
     logging_tasks.add(log_task)
