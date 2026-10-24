@@ -9,6 +9,11 @@ import traceback
 import signal
 import os
 import json
+import base64
+import binascii
+import secrets
+from passlib.hash import bcrypt
+from urllib.parse import quote, quote_plus
 from datetime import datetime
 import requests
 import sys
@@ -177,10 +182,10 @@ async def listen_to_changes(last_seq):
                         doc = change.get('doc', {})
                         if doc.get('type') == 'API':
                             url_api_lookup_table[doc['_id']] = {'paths': doc['paths']}
-                            print("Created api", url_api_lookup_table[doc["_id"]])
+                            logger.info("Updated API configuration")
                         elif doc.get('type') == 'actions':
                             action_lookup_table[doc['_id']] = {'api_links': doc['api_links'], 'auths': (await fetch_auths([doc["_id"]]))}
-                            print("Created action", action_lookup_table[doc["_id"]])
+                            logger.info("Updated action configuration")
             except httpx.ReadTimeout:
                 continue
             except httpx.HTTPStatusError as e:
@@ -206,18 +211,44 @@ async def update_action_lookup_table():
             action_lookup_table[a['id']]={'api_links': a['value'], 'auths': a['auths']}
 
 def validate_auth(header_token, auth):
-    return True #todo
+    """Validate the Basic API credential against the action's stored hash."""
+    try:
+        if not isinstance(header_token, str) or len(header_token) > 2048:
+            return False
+        if not isinstance(auth, dict) or auth.get("auth_type") != "api_key_basic":
+            return False
+        decoded = base64.b64decode(header_token, validate=True).decode("utf-8")
+        username, password = decoded.split(":", 1)
+        if len(password.encode("utf-8")) > 72:
+            return False
+        expected_username = auth.get("username")
+        password_hash = auth.get("password_hash")
+        if not isinstance(expected_username, str) or not isinstance(password_hash, str):
+            return False
+        if not secrets.compare_digest(username.encode(), expected_username.encode()):
+            return False
+        return bcrypt.verify(password, password_hash)
+    except (ValueError, TypeError, UnicodeError, binascii.Error):
+        return False
 
 @app.route('/', methods=['GET'])
 def ready():
     return "ready"
 
-@app.before_request
-async def debug_request_info():
-   app.logger.info(f'Headers: {dict(request.headers)}')
-   app.logger.info(f'Method: {request.method}')
-   app.logger.info(f'URL: {request.url}')
-   app.logger.info(f'Body: {await request.get_data()}')
+
+def redact_log_value(value, credentials):
+    """Remove known configured secrets from every request/response log field."""
+    if isinstance(value, dict):
+        return {redact_log_value(key, credentials): redact_log_value(item, credentials) for key, item in value.items()}
+    if isinstance(value, (list, tuple)):
+        return [redact_log_value(item, credentials) for item in value]
+    if isinstance(value, str):
+        for credential in sorted(set(credentials), key=len, reverse=True):
+            for representation in {credential, json.dumps(credential)[1:-1], quote(credential, safe=""), quote_plus(credential)}:
+                if representation:
+                    value = value.replace(representation, "[REDACTED]")
+    return value
+
 
 def get_value_from_source(param, headers):
     source = param["source"]
@@ -249,7 +280,6 @@ async def passthrough(action_id, operation_id):
     api_link = None
     active_path_id = None
     active_action_path = None
-    print("Found actions_api_links", actions_api_links)
     for a in actions_api_links:
         for path in a["paths"]:
             if path['operation_id']==operation_id:
@@ -272,11 +302,9 @@ async def passthrough(action_id, operation_id):
             target_path = path
             break
 
-    auth_header = None
-    if "Authorization" in headers:
-        auth_header = headers["Authorization"].lower()
+    auth_header = next((value for key, value in headers.items() if key.lower() == "authorization"), None)
     # Basic auth
-    if auth_header and auth_header.startswith('basic '):
+    if auth_header and auth_header[:6].lower() == 'basic ':
         token = auth_header[6:]  # Strip off 'Basic ' prefix
         try:
             valid = False
@@ -285,12 +313,18 @@ async def passthrough(action_id, operation_id):
                     valid = True
                     break
             if(not valid):
-                return jsonify({"error": 'Missing or invalid Authorization header (i)'}, 401)
+                return jsonify({"error": 'Missing or invalid Authorization header (i)'}), 401
         except (TypeError, ValueError):
-            return jsonify({"error": 'Missing or invalid Authorization header (e)'}, 401)
+            return jsonify({"error": 'Missing or invalid Authorization header (e)'}), 401
     else:
-        return jsonify({"error": 'Missing or invalid Authorization header'}, 401)
+        return jsonify({"error": 'Missing or invalid Authorization header'}), 401
 
+    # This credential authenticates the proxy, not the upstream API.
+    decoded_proxy_credential = base64.b64decode(auth_header[6:], validate=True).decode("utf-8")
+    credentials = [auth_header, auth_header[6:], decoded_proxy_credential, decoded_proxy_credential.split(":", 1)[1]]
+    for header_name in list(headers):
+        if header_name.lower() == "authorization":
+            del headers[header_name]
     api_url = target_path['url']
     for param in active_action_path["params"]:
         target_param = None
@@ -298,6 +332,7 @@ async def passthrough(action_id, operation_id):
             if tp["name"] == param["name"]:
                 target_param = tp
         if target_param is not None and target_param["type"] == "credential":
+            credentials.append(str(param["value"]))
             if target_param['name'] == 'bearer':
                 headers['Authorization'] = 'Bearer ' + param['value']
             elif target_param['name'] == 'basic':
@@ -337,15 +372,20 @@ async def passthrough(action_id, operation_id):
 
     response_time = time.time() - start_time
 
+    sensitive_headers = {"authorization", "cookie", "set-cookie", "proxy-authorization"}
+    sensitive_headers.update(p["name"].lower() for p in target_path["params"] if p.get("type") == "credential")
+    logged_headers = {key: "[REDACTED]" if key.lower() in sensitive_headers else value for key, value in headers.items()}
     record_request = {
         "content": content,
         "params": params,
-        "headers": headers
+        "headers": logged_headers
     }
     record_response = {
         "content": response_data,
-        "headers": dict(response.headers)
+        "headers": {key: "[REDACTED]" if key.lower() in sensitive_headers else value for key, value in response.headers.items()}
     }
+    record_request = redact_log_value(record_request, credentials)
+    record_response = redact_log_value(record_response, credentials)
     do_log = async_log(record_request, record_response, response_time, method, action_id, api_link['api_id'], operation_id, active_path_id, response.status_code)
     log_task = asyncio.create_task(do_log)
     logging_tasks.add(log_task)

@@ -27,3 +27,21 @@ jobs:
         env:
           SERVICE: ${{ matrix.service }}
         run: python -m pytest -q tests
+  shared-venv:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11.17'
+      - name: Resolve the deployed six-service shared environment together
+        run: |
+          python -m pip install wheel==0.46.3 setuptools==84.2.1
+          python -m pip install -r portal/requirements.txt -r proxy/requirements.txt -r memory/requirements.txt -r persona/requirements.txt -r stability/requirements.txt -r zazzle/requirements.txt gunicorn uvicorn pytest==9.0.3
+          python -m pip check
+      - name: Exercise each app in the same installed environment
+        run: |
+          for service in portal proxy memory persona stability zazzle; do
+            SERVICE="$service" python -m pytest -q tests || exit
+          done

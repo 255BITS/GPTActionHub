@@ -15,7 +15,10 @@ from shared.utils import humanize
 
 def create_app():
     app = Flask(__name__)
-    app.secret_key = os.environ.get("FLASK_SECRET", 'development')
+    secret_key = os.environ.get("FLASK_SECRET")
+    if not secret_key or secret_key == "development":
+        raise RuntimeError("Set FLASK_SECRET to a private, persistent random secret before starting the portal")
+    app.secret_key = secret_key
     app.register_blueprint(actions_bp)
     app.register_blueprint(auth_bp)
     app.register_blueprint(api_bp)
