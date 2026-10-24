@@ -27,7 +27,7 @@ RUN mkdir -p /root/.aws
 
 # Install dependencies
 COPY zazzle/requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt -v
+RUN pip install --no-cache-dir wheel==0.46.3 setuptools==84.2.1 && pip install --no-cache-dir -r requirements.txt -v
 
 RUN pip install uvicorn
 # Copy app files into container

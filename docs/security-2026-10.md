@@ -1,0 +1,48 @@
+# October 2026 dependency remediation
+
+## Scope and verification boundary
+
+Seven public service dependency graphs and their container build tools. Python 3.11.17 and certifi 2026.10.19 were already pinned. These source changes do not prove that a deployed service has restarted. Deployment owners must record installed graphs, process interpreter paths, restarts and live checks separately.
+
+## Confirmed affected pins
+
+Targets below cover all nonwithdrawn advisories returned for the baseline pins, plus advisories introduced along the upgrade path. Supporting metadata was obtained from GitHub Global Security Advisories and OSV on 2026-10-23. Unused Flask-OAuthlib, requests-oauthlib and oauthlib were removed; application OAuth uses Authlib. AWS SDK companion, Flask integration and HTTP parser pins move together to keep dependency constraints valid.
+
+| Package | Previous | Remediation | Official advisory |
+| --- | --- | --- | --- |
+| Authlib | 1.2.1 | 1.7.1 | [GHSA-5357-c2jx-v7qh](https://github.com/advisories/GHSA-5357-c2jx-v7qh), [GHSA-7432-952r-cw78](https://github.com/advisories/GHSA-7432-952r-cw78), [GHSA-9ggr-2464-2j32](https://github.com/advisories/GHSA-9ggr-2464-2j32), [GHSA-fg6f-75jq-6523](https://github.com/advisories/GHSA-fg6f-75jq-6523), [GHSA-g7f3-828f-7h7m](https://github.com/advisories/GHSA-g7f3-828f-7h7m), [GHSA-jj8c-mmj3-mmgv](https://github.com/advisories/GHSA-jj8c-mmj3-mmgv), [GHSA-m344-f55w-2m6j](https://github.com/advisories/GHSA-m344-f55w-2m6j), [GHSA-pq5p-34cr-23v9](https://github.com/advisories/GHSA-pq5p-34cr-23v9), [GHSA-r95x-qfjj-fjj2](https://github.com/advisories/GHSA-r95x-qfjj-fjj2), [GHSA-w8p2-r796-3vmq](https://github.com/advisories/GHSA-w8p2-r796-3vmq), [GHSA-wvwj-cvrp-7pv5](https://github.com/advisories/GHSA-wvwj-cvrp-7pv5) |
+| Flask | 3.0.0 | 3.1.3 | [GHSA-68rp-wp8r-4726](https://github.com/advisories/GHSA-68rp-wp8r-4726) |
+| Jinja2 | 3.1.2 | 3.1.6 | [GHSA-cpwx-vrp4-4pq7](https://github.com/advisories/GHSA-cpwx-vrp4-4pq7), [GHSA-gmj6-6f8f-6699](https://github.com/advisories/GHSA-gmj6-6f8f-6699), [GHSA-h5c8-rqwp-cp95](https://github.com/advisories/GHSA-h5c8-rqwp-cp95), [GHSA-h75v-3vvj-5mfj](https://github.com/advisories/GHSA-h75v-3vvj-5mfj), [GHSA-q2x7-8rv6-6q7h](https://github.com/advisories/GHSA-q2x7-8rv6-6q7h) |
+| Markdown | 3.5 | 3.8.1 | [GHSA-5wmx-573v-2qwq](https://github.com/advisories/GHSA-5wmx-573v-2qwq) |
+| Quart | 0.19.3 | 0.20.0 | [GHSA-q34m-jh98-gwm2](https://github.com/advisories/GHSA-q34m-jh98-gwm2) |
+| Quart | 0.19.4 | 0.20.0 | [GHSA-q34m-jh98-gwm2](https://github.com/advisories/GHSA-q34m-jh98-gwm2) |
+| Werkzeug | 3.0.1 | 3.1.9 | [GHSA-29vq-49wr-vm6x](https://github.com/advisories/GHSA-29vq-49wr-vm6x), [GHSA-2g68-c3qc-8985](https://github.com/advisories/GHSA-2g68-c3qc-8985), [GHSA-87hc-h4r5-73f7](https://github.com/advisories/GHSA-87hc-h4r5-73f7), [GHSA-f9vj-2wh5-fj8j](https://github.com/advisories/GHSA-f9vj-2wh5-fj8j), [GHSA-g6x2-hccm-hh4m](https://github.com/advisories/GHSA-g6x2-hccm-hh4m), [GHSA-hgf8-39gv-g3f2](https://github.com/advisories/GHSA-hgf8-39gv-g3f2), [GHSA-q34m-jh98-gwm2](https://github.com/advisories/GHSA-q34m-jh98-gwm2) |
+| anyio | 4.0.0 | 4.14.2 | [GHSA-5p39-cfhj-2xmp](https://github.com/advisories/GHSA-5p39-cfhj-2xmp), [GHSA-82r6-8w77-94w6](https://github.com/advisories/GHSA-82r6-8w77-94w6) |
+| awscli | 1.29.62 | 1.45.28 | [GHSA-747p-wmpv-9c78](https://github.com/advisories/GHSA-747p-wmpv-9c78), [GHSA-hqvf-45jj-mccq](https://github.com/advisories/GHSA-hqvf-45jj-mccq), [GHSA-wfp6-f47h-hxc3](https://github.com/advisories/GHSA-wfp6-f47h-hxc3) |
+| cryptography | 41.0.5 | 50.0.2 | [GHSA-3ww4-gg4f-jr7f](https://github.com/advisories/GHSA-3ww4-gg4f-jr7f), [GHSA-537c-gmf6-5ccf](https://github.com/advisories/GHSA-537c-gmf6-5ccf), [GHSA-6vqw-3v5j-54x4](https://github.com/advisories/GHSA-6vqw-3v5j-54x4), [GHSA-9v9h-cgj8-h64p](https://github.com/advisories/GHSA-9v9h-cgj8-h64p), [GHSA-h4gh-qq45-vh27](https://github.com/advisories/GHSA-h4gh-qq45-vh27), [GHSA-jfhm-5ghh-2f97](https://github.com/advisories/GHSA-jfhm-5ghh-2f97), [GHSA-m959-cc7f-wv43](https://github.com/advisories/GHSA-m959-cc7f-wv43), [GHSA-r6ph-v2qm-q3c2](https://github.com/advisories/GHSA-r6ph-v2qm-q3c2), [GHSA-g6cj-pr64-35w5](https://github.com/advisories/GHSA-g6cj-pr64-35w5), [GHSA-jwv3-5hgf-82ww](https://github.com/advisories/GHSA-jwv3-5hgf-82ww), [GHSA-m2h6-j472-rp4c](https://github.com/advisories/GHSA-m2h6-j472-rp4c) |
+| h11 | 0.14.0 | 0.16.0 | [GHSA-vqfr-h8mv-ghfj](https://github.com/advisories/GHSA-vqfr-h8mv-ghfj) |
+| h2 | 4.1.0 | 4.4.1 | [GHSA-6hr6-w5qg-qmwg](https://github.com/advisories/GHSA-6hr6-w5qg-qmwg), [GHSA-847f-9342-265h](https://github.com/advisories/GHSA-847f-9342-265h) |
+| hpack | 4.0.0 | 4.2.0 | [GHSA-8v8h-hg4w-mvq2](https://github.com/advisories/GHSA-8v8h-hg4w-mvq2) |
+| idna | 3.4 | 3.15 | [GHSA-65pc-fj4g-8rjx](https://github.com/advisories/GHSA-65pc-fj4g-8rjx), [GHSA-jjg7-2v4v-x38h](https://github.com/advisories/GHSA-jjg7-2v4v-x38h) |
+| idna | 3.6 | 3.15 | [GHSA-65pc-fj4g-8rjx](https://github.com/advisories/GHSA-65pc-fj4g-8rjx), [GHSA-jjg7-2v4v-x38h](https://github.com/advisories/GHSA-jjg7-2v4v-x38h) |
+| oauthlib | 2.1.0 | Removed unused package | [GHSA-hj66-6f7g-4r5v](https://github.com/advisories/GHSA-hj66-6f7g-4r5v) |
+| pyasn1 | 0.5.0 | 0.6.4 | [GHSA-8ppf-4f7h-5ppj](https://github.com/advisories/GHSA-8ppf-4f7h-5ppj), [GHSA-hm4w-wwcw-mr6r](https://github.com/advisories/GHSA-hm4w-wwcw-mr6r), [GHSA-jr27-m4p2-rc6r](https://github.com/advisories/GHSA-jr27-m4p2-rc6r), [GHSA-m4p7-r5rc-7g4j](https://github.com/advisories/GHSA-m4p7-r5rc-7g4j) |
+| python-dotenv | 1.0.0 | 1.2.2 | [GHSA-mf9w-mj56-hr94](https://github.com/advisories/GHSA-mf9w-mj56-hr94) |
+| requests | 2.31.0 | 2.33.0 | [GHSA-9hjg-9r4m-mvj7](https://github.com/advisories/GHSA-9hjg-9r4m-mvj7), [GHSA-9wx4-h78v-vm56](https://github.com/advisories/GHSA-9wx4-h78v-vm56), [GHSA-gc5v-m9x4-r6x2](https://github.com/advisories/GHSA-gc5v-m9x4-r6x2) |
+| soupsieve | 2.5 | 2.9.0 | [GHSA-2wc2-fm75-p42x](https://github.com/advisories/GHSA-2wc2-fm75-p42x), [GHSA-836r-79rf-4m37](https://github.com/advisories/GHSA-836r-79rf-4m37), [GHSA-gjv8-xp57-g29c](https://github.com/advisories/GHSA-gjv8-xp57-g29c), [GHSA-j934-xhv5-fg8f](https://github.com/advisories/GHSA-j934-xhv5-fg8f) |
+| tqdm | 4.66.1 | 4.66.3 | [GHSA-g7vv-2v7x-gj9p](https://github.com/advisories/GHSA-g7vv-2v7x-gj9p) |
+| urllib3 | 1.26.18 | 2.8.0 | [GHSA-2xpw-w6gg-jr37](https://github.com/advisories/GHSA-2xpw-w6gg-jr37), [GHSA-34jh-p97f-mpxf](https://github.com/advisories/GHSA-34jh-p97f-mpxf), [GHSA-38jv-5279-wg99](https://github.com/advisories/GHSA-38jv-5279-wg99), [GHSA-8988-9cw3-xx77](https://github.com/advisories/GHSA-8988-9cw3-xx77), [GHSA-gm62-xv2j-4w53](https://github.com/advisories/GHSA-gm62-xv2j-4w53), [GHSA-pq67-6m6q-mj2v](https://github.com/advisories/GHSA-pq67-6m6q-mj2v), [GHSA-qccp-gfcp-xxvc](https://github.com/advisories/GHSA-qccp-gfcp-xxvc), [GHSA-vxq7-64xx-v4gw](https://github.com/advisories/GHSA-vxq7-64xx-v4gw) |
+| urllib3 | 2.1.0 | 2.8.0 | [GHSA-2xpw-w6gg-jr37](https://github.com/advisories/GHSA-2xpw-w6gg-jr37), [GHSA-34jh-p97f-mpxf](https://github.com/advisories/GHSA-34jh-p97f-mpxf), [GHSA-38jv-5279-wg99](https://github.com/advisories/GHSA-38jv-5279-wg99), [GHSA-8988-9cw3-xx77](https://github.com/advisories/GHSA-8988-9cw3-xx77), [GHSA-gm62-xv2j-4w53](https://github.com/advisories/GHSA-gm62-xv2j-4w53), [GHSA-pq67-6m6q-mj2v](https://github.com/advisories/GHSA-pq67-6m6q-mj2v), [GHSA-qccp-gfcp-xxvc](https://github.com/advisories/GHSA-qccp-gfcp-xxvc), [GHSA-vxq7-64xx-v4gw](https://github.com/advisories/GHSA-vxq7-64xx-v4gw) |
+| zipp | 3.17.0 | 3.19.1 | [GHSA-jfmj-5v4g-7637](https://github.com/advisories/GHSA-jfmj-5v4g-7637) |
+
+## Attack surface
+
+HTTP parsing, templates, uploaded/form data, OAuth responses, outbound HTTP redirects/proxies, ASN.1/cryptographic parsing and CLI credential files are the applicable library surfaces. Some advisory paths are not invoked by these apps (for example Jinja sandbox execution and PKCS#7 decryption); patched versions avoid carrying those vulnerable implementations. Together SDK 0.2.8 remains because it has no reported applicable advisory and its legacy API is exercised by tests. Pillow, wheel extraction commands, PHP, Electron and ML checkpoint loading are absent from application source/dependency graphs. Wheel and setuptools are still patched explicitly in every image because build tools are installed files, even when extraction is not an application route.
+
+## Tests and rollback
+
+Python 3.11.17 isolated environments resolved the complete service graphs; `pip check` passed. OSV batch audits of both complete installed graphs, including transitive and build/test packages, returned no advisories. Seven offline service probes exercise actual Flask/Quart routes; the portal probe also runs all four existing OpenAPI fixtures. DB, provider API, S3 and model catalog boundaries are mocked, and unmocked socket connections fail. Tests caught a missing `os` import in Together completion, fixed in this change. CI independently installs and checks each service.
+
+Rollback: revert this commit and redeploy the previous tested image/venv snapshot if compatibility fails. That restores known vulnerable pins; do not treat rollback as a security fix. Source merge, image build, installed venvs and running workers must be verified separately.
+
+cryptography 50.0.2 also preserves the deployed security floor and uses OpenSSL 4.0.3 in published wheels; see the [official release notes](https://cryptography.io/en/latest/changelog/#v50-0-2).
