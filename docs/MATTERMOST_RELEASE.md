@@ -22,3 +22,6 @@ historical deployment support, not a second runtime to release.
 Validation: `python -m unittest discover -s tests -p test_mattermost_notifications.py -v`
 uses a loopback HTTP receiver and covers JSON delivery, disabled notifications,
 HTTP failure reporting, and redaction of webhook secrets on network failure.
+
+User-entered notification text neutralizes direct/channel mentions with a zero-width
+separator after standalone `@` characters; ordinary email addresses remain intact.

@@ -1,6 +1,7 @@
 """Optional internal notifications to the self-hosted Mattermost webhook."""
 
 import logging
+import re
 import os
 
 import requests
@@ -12,6 +13,8 @@ def send_mattermost_notification(message):
     webhook_url = os.getenv("MATTERMOST_WEBHOOK_URL")
     if not webhook_url:
         return None
+    # User-entered content must not trigger channel-wide or direct mentions.
+    message = re.sub(r"(?<![\w@])@(?=\w)", "@\u200b", message)
     try:
         response = requests.post(webhook_url, json={"text": message}, timeout=10)
     except requests.RequestException:

@@ -35,9 +35,9 @@ class WebhookTests(unittest.TestCase):
 
     def test_signup_text_reaches_mattermost_webhook(self):
         with patch.dict("os.environ", {"MATTERMOST_WEBHOOK_URL": self.url}, clear=True):
-            self.assertEqual(notifications.send_mattermost_notification("New signup: alice@example.com"), 200)
+            self.assertEqual(notifications.send_mattermost_notification("New signup: alice@example.com @channel @martyn"), 200)
         self.assertEqual(WebhookHandler.messages, [
-            ("/hooks/private-test-key", "application/json", {"text": "New signup: alice@example.com"})
+            ("/hooks/private-test-key", "application/json", {"text": "New signup: alice@example.com @\u200bchannel @\u200bmartyn"})
         ])
 
     def test_old_slack_setting_cannot_send_notifications(self):
