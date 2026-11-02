@@ -10,8 +10,12 @@ import signal
 import os
 import json
 from datetime import datetime
-import requests
 import sys
+from pathlib import Path
+
+# Native systemd starts in proxy/; Docker copies shared/ beside this file.
+sys.path.append(str(Path(__file__).resolve().parent.parent))
+from shared.notifications import send_mattermost_notification
 
 app = Quart(__name__)
 logging_tasks = set()
@@ -37,8 +41,6 @@ COUCHDB_LOGS_URL = COUCHDB_URL+"-logs"
 MAPPING_API_URL = COUCHDB_URL+"/_design/apis/_view/urls"
 MAPPING_ACTION_URL = COUCHDB_URL+"/_design/actions/_view/api_links"
 AUTH_MAPPING_URL = COUCHDB_URL+"/_design/auths/_view/by_actions?keys="
-SLACK_WEBHOOK_URL = os.getenv('SLACK_WEBHOOK_URL', None)
-
 # Setup asynchronous logging
 logger = logging.getLogger("quart.app")
 logger.setLevel(logging.INFO)
@@ -51,11 +53,9 @@ write_lock = asyncio.Lock()
 couch_timeout = Timeout(120.0)
 proxy_service_timeout = Timeout(180.0)
 
-def terminate_and_send_slack_notification(message):
-    payload = {"text": message}
-    if SLACK_WEBHOOK_URL is not None:
-        response = requests.post(SLACK_WEBHOOK_URL, json=payload)
-    print(f"Failed to send Slack notification: {message}")
+def terminate_and_send_mattermost_notification(message):
+    send_mattermost_notification(message)
+    print(f"Proxy startup failed: {message}")
     sys.exit("Terminating program due to error.")
 
 
@@ -114,19 +114,19 @@ async def fetch_api_url_mapping():
         try:
             response = await client.get(MAPPING_API_URL)
             if response.status_code != 200:
-                terminate_and_send_slack_notification(f"Error fetching proxy apis on startup: {response.status_code}")
+                terminate_and_send_mattermost_notification(f"Error fetching proxy apis on startup: {response.status_code}")
             return response.json()['rows']
         except httpx.RequestError as e:
-            terminate_and_send_slack_notification(f"HTTP request error while fetching apis: {e}")
+            terminate_and_send_mattermost_notification(f"HTTP request error while fetching apis: {e}")
 
 async def fetch_action_mapping():
     async with httpx.AsyncClient(timeout=couch_timeout) as client:
         try:
             response = await client.get(MAPPING_ACTION_URL)
         except httpx.RequestError as e:
-            terminate_and_send_slack_notification(f"HTTP request error while fetching actions: {e}")
+            terminate_and_send_mattermost_notification(f"HTTP request error while fetching actions: {e}")
         if response.status_code != 200:
-            terminate_and_send_slack_notification(f"Error fetching proxy actions on startup: {response.status_code}")
+            terminate_and_send_mattermost_notification(f"Error fetching proxy actions on startup: {response.status_code}")
         actionrows = response.json()["rows"]
         authrows = await fetch_auths([row["id"] for row in actionrows])
         for actionrow in actionrows:
@@ -142,10 +142,10 @@ async def fetch_auths(action_ids):
         try:
             auths = await client.get(AUTH_MAPPING_URL+json.dumps([a_id for a_id in action_ids]))
             if auths.status_code != 200:
-                terminate_and_send_slack_notification(f"Error fetching proxy auths on startup: {auth.status_code}")
+                terminate_and_send_mattermost_notification(f"Error fetching proxy auths on startup: {auth.status_code}")
             return [auth['value'] for auth in auths.json()['rows']]
         except httpx.RequestError as e:
-            terminate_and_send_slack_notification(f"HTTP request error while fetching auths: {e}")
+            terminate_and_send_mattermost_notification(f"HTTP request error while fetching auths: {e}")
 
 async def listen_to_changes(last_seq):
     """ Asynchronous version to listen for changes in the database """

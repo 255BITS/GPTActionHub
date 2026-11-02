@@ -22,7 +22,7 @@ def offline(monkeypatch):
     def forbidden(*args, **kwargs):
         raise AssertionError('Unmocked network access in offline service test')
     monkeypatch.setattr(socket.socket, 'connect', forbidden)
-    monkeypatch.delenv('SLACK_WEBHOOK_URL', raising=False)
+    monkeypatch.delenv('MATTERMOST_WEBHOOK_URL', raising=False)
     monkeypatch.setenv('AWS_EC2_METADATA_DISABLED', 'true')
 
 
