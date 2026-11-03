@@ -2,12 +2,11 @@ from authlib.integrations.flask_client import OAuth
 from flask import session, g, flash, redirect, url_for
 from passlib.hash import bcrypt
 from shared.couch import db
-import requests
+from shared.notifications import send_mattermost_notification
 import os
 
 GITHUB_CLIENT_SECRET = os.getenv('GITHUB_CLIENT_SECRET', None)
 GITHUB_CLIENT_ID = os.getenv('GITHUB_CLIENT_ID', None)
-SLACK_WEBHOOK_URL = os.getenv('SLACK_WEBHOOK_URL', None)
 oauth = OAuth()
 
 class AuthError(ValueError):
@@ -64,17 +63,7 @@ def load_current_user():
     return None
 
 def log_signup(email):
-    if SLACK_WEBHOOK_URL is None:
-        return
-    message = f"GPTActionHub new signup: {email}"
-    payload = {"text": message}
-
-    response = requests.post(SLACK_WEBHOOK_URL, json=payload)
-
-    if response.status_code == 200:
-        print("Notification sent successfully!")
-    else:
-        print(f"Failed to send notification, status code: {response.status_code}")
+    send_mattermost_notification(f"GPTActionHub new signup: {email}")
 
 def login_github_user(token):
     resp = oauth.github.get('user')
