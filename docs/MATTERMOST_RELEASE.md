@@ -8,9 +8,10 @@ webhook; leave `MATTERMOST_WEBHOOK_URL` unset there to preserve that behavior, o
 configure a separate `#internal` webhook when startup alerts are wanted.
 
 Merge through the normal reviewed `main` workflow, which deploys `gptactionhub`
-and restarts its units. Verify `/login`, existing API actions, and one controlled
-signup; confirm the notification appears once in Mattermost and no Slack post
-appears. Notification HTTP/network failures are best effort with a 10-second
+and restarts its units. Verify `/login` and existing API health, then invoke
+`shared.notifications.send_mattermost_notification` with a labeled notification-only
+canary; confirm it appears once in Mattermost. Do not create a signup or API
+business action as a notification test. Notification HTTP/network failures are best effort with a 10-second
 bound and do not fail signup or prevent the proxy's intended shutdown.
 
 Rollback: revert this PR via the same release workflow, restore the saved
