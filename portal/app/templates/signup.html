@@ -6,6 +6,11 @@
         <div>
             {{ macros.flash_alerts() }}
             <form action="{{url_for("auth.signup")}}" method="POST">
+                <input type="hidden" name="signup_token" value="{{ signup_token }}">
+                <div aria-hidden="true" style="position:absolute;left:-10000px;top:auto;width:1px;height:1px;overflow:hidden;">
+                    <label for="company_website">Leave this field empty</label>
+                    <input type="text" id="company_website" name="company_website" tabindex="-1" autocomplete="off">
+                </div>
                 <div class="mb-4">
                     <label class="block text-gray-700 text-sm font-bold mb-2" for="email">
                         Email
@@ -29,7 +34,7 @@
                         Sign Up
                     </button>
                 </div>
-            <form>
+            </form>
         </div>
 
         <!-- Login Link -->
