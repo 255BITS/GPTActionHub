@@ -36,6 +36,11 @@ def test_real_service_routes(monkeypatch):
         module = importlib.import_module('main')
         client = module.app.test_client()
         assert client.get('/login').status_code == 200
+        signup = client.get('/signup')
+        assert signup.status_code == 200
+        assert signup.headers['Cache-Control'] == 'no-store'
+        assert b'name="signup_token"' in signup.data
+        assert b'name="company_website"' in signup.data
         assert client.get('/').status_code == 200
         response = client.get('/login/github')
         assert response.status_code == 302

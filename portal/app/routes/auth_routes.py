@@ -1,5 +1,7 @@
-from flask import Blueprint, Flask, render_template, redirect, request, url_for, flash, make_response, g
+from flask import Blueprint, Flask, render_template, redirect, request, url_for, flash, make_response, g, session
 from app.services.auth_service import validate_password, authenticate_user, create_user, load_current_user, login_github_user, login_user, logout_user, oauth, AuthError
+from app.services.signup_guard import issue_signup_form, valid_signup_form
+
 auth_bp = Blueprint('auth', __name__)
 
 @auth_bp.get('/login')
@@ -42,11 +44,16 @@ def logout():
 
 @auth_bp.get('/signup')
 def signup():
-    return render_template('signup.html')
+    response = make_response(render_template('signup.html', signup_token=issue_signup_form(session)))
+    response.headers['Cache-Control'] = 'no-store'
+    return response
 
 @auth_bp.post('/signup')
 def post_signup():
     form = request.form
+    if not valid_signup_form(session, form):
+        flash('Please try the signup form again. Wait a moment before submitting.', 'error')
+        return redirect(url_for('auth.signup'))
     email = form.get('email')
     password = form.get('password')
     password_confirmation = form.get('password-confirm')
