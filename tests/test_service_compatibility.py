@@ -9,7 +9,7 @@ from pathlib import Path
 import socket
 import sys
 from types import SimpleNamespace
-from unittest.mock import AsyncMock, Mock
+from unittest.mock import AsyncMock, Mock, MagicMock
 
 import pytest
 
@@ -36,6 +36,12 @@ def test_real_service_routes(monkeypatch):
         module = importlib.import_module('main')
         client = module.app.test_client()
         assert client.get('/login').status_code == 200
+        from app.services import auth_service
+        stored = {'_id': 'fixture-user', 'password_hash': auth_service.bcrypt.hash('fixture-password')}
+        db.get_user_by_email.return_value = stored
+        assert auth_service.authenticate_user('fixture@example.invalid', 'fixture-password') == stored
+        with pytest.raises(auth_service.InvalidPasswordError):
+            auth_service.authenticate_user('fixture@example.invalid', 'wrong')
         assert client.get('/').status_code == 200
         response = client.get('/login/github')
         assert response.status_code == 302
@@ -104,6 +110,70 @@ async def check_async_service(monkeypatch):
         assert 'Response: done' in await response.get_data(as_text=True)
         together.Complete.create.assert_called_once_with(prompt='hello', model='offline-model', max_tokens=256, stop=['END'])
     elif SERVICE == 'proxy':
-        response = await client.post('/missing/operation', json={})
-        assert response.status_code == 200  # Legacy API puts status in JSON; smoke the actual handler.
-        assert 'Action not found' in await response.get_data(as_text=True)
+        import base64
+        from passlib.hash import bcrypt
+        auth = {'auth_type': 'api_key_basic', 'username': 'CaseSensitive', 'password_hash': bcrypt.hash('PaSsWord')}
+        target_path = {'path_id': 'path', 'url': 'https://example.invalid/upstream', 'method': 'POST', 'params': [{'name': 'X-Api-Key', 'type': 'credential'}]}
+        module.action_lookup_table['action'] = {'auths': [auth], 'api_links': [{'api_id': 'api', 'paths': [{'operation_id': 'operation', 'path_id': 'path', 'params': [{'name': 'X-Api-Key', 'value': 'private-upstream-secret'}]}]}]}
+        module.url_api_lookup_table['api'] = {'paths': [target_path]}
+        upstream = SimpleNamespace(text='upstream result private-upstream-secret', status_code=200, headers={'X-Echo': 'private-upstream-secret', 'Set-Cookie': 'session=private-cookie'})
+        transport = Mock(request=AsyncMock(return_value=upstream))
+        context = MagicMock()
+        context.__aenter__ = AsyncMock(return_value=transport)
+        context.__aexit__ = AsyncMock(return_value=False)
+        monkeypatch.setattr(module.httpx, 'AsyncClient', Mock(return_value=context))
+        monkeypatch.setattr(module, 'async_log', AsyncMock())
+        for credential in ['', 'Basic invalid!!', 'Basic ' + base64.b64encode(b'CaseSensitive:wrong').decode(), 'Basic ' + base64.b64encode(b'casesensitive:PaSsWord').decode()]:
+            response = await client.post('/action/operation', headers={'Authorization': credential}, json={})
+            assert response.status_code == 401
+            assert 'Missing or invalid Authorization' in await response.get_data(as_text=True)
+            transport.request.assert_not_awaited()
+        token = base64.b64encode(b'CaseSensitive:PaSsWord').decode()
+        response = await client.post('/action/operation?echo=private-upstream-secret', headers={'authorization': 'bAsIc ' + token}, json={'echo': 'private-upstream-secret', 'password': 'PaSsWord'})
+        assert response.status_code == 200
+        assert 'upstream result' in await response.get_data(as_text=True)
+        await asyncio.gather(*module.logging_tasks)
+        transport.request.assert_awaited_once()
+        assert transport.request.call_args.kwargs['headers']['X-Api-Key'] == 'private-upstream-secret'
+        logged = module.async_log.call_args.args[0]['headers']
+        assert 'Authorization' not in logged
+        assert 'Authorization' not in transport.request.call_args.kwargs['headers']
+        assert logged['X-Api-Key'] == '[REDACTED]'
+        import json
+        serialized_log = json.dumps(module.async_log.call_args.args[:2])
+        assert 'private-upstream-secret' not in serialized_log
+        assert token not in serialized_log
+        assert 'PaSsWord' not in serialized_log
+        assert 'private-cookie' not in serialized_log
+        # Client-visible behavior is preserved while stored data is redacted.
+        assert 'private-upstream-secret' in await response.get_data(as_text=True)
+        assert not module.validate_auth(base64.b64encode(b'CaseSensitive:PaSsWord').decode(), {'auth_type': 'unknown'})
+
+
+def test_portal_requires_private_secret(monkeypatch):
+    if SERVICE != 'portal':
+        pytest.skip('portal only')
+    monkeypatch.setitem(sys.modules, 'shared.couch', SimpleNamespace(db=Mock(), logs_db=Mock()))
+    module = importlib.import_module('app')
+    for bad_secret in [None, '', 'development']:
+        if bad_secret is None:
+            monkeypatch.delenv('FLASK_SECRET', raising=False)
+        else:
+            monkeypatch.setenv('FLASK_SECRET', bad_secret)
+        with pytest.raises(RuntimeError, match='FLASK_SECRET'):
+            module.create_app()
+
+
+def test_proxy_redaction_encoded_forms(monkeypatch):
+    if SERVICE != 'proxy':
+        pytest.skip('proxy only')
+    from urllib.parse import quote_plus
+    module = importlib.import_module('proxy')
+    secret = 'private+/secret"value'
+    import json
+    payload = {'body': json.dumps({'password': secret}), 'query': 'token=' + quote_plus(secret), 'response': [secret]}
+    redacted = module.redact_log_value(payload, [secret])
+    assert secret not in json.dumps(redacted)
+    assert quote_plus(secret) not in redacted['query']
+    assert json.loads(redacted['body']) == {'password': '[REDACTED]'}
+    assert redacted['response'] == ['[REDACTED]']
